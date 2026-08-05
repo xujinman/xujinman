@@ -140,7 +140,13 @@ function isRegistrationRateLimited(ip) {
   return item.count >= 10;
 }
 
-app.get('/api/health', (req, res) => res.json({ ok: true, database: db.kind, storage: storage.kind, time: new Date().toISOString() }));
+app.get('/api/health', (req, res) => res.json({
+  ok: true,
+  database: db.kind,
+  storage: storage.kind,
+  version: process.env.RENDER_GIT_COMMIT || 'local',
+  time: new Date().toISOString()
+}));
 
 app.post('/api/auth/register', async (req, res, next) => {
   try {
