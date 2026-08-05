@@ -4,9 +4,9 @@ const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '..');
 const localRoot = process.env.UPLOAD_ROOT ? path.resolve(process.env.UPLOAD_ROOT) : path.join(projectRoot, 'uploads');
 const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
-const supabaseServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '');
 const bucket = String(process.env.SUPABASE_STORAGE_BUCKET || 'yantu-uploads');
-const cloudEnabled = Boolean(supabaseUrl && supabaseServiceRoleKey);
+const cloudEnabled = Boolean(supabaseUrl && supabaseSecretKey);
 const mimeByExtension = new Map([
   ['.jpg', 'image/jpeg'],
   ['.png', 'image/png'],
@@ -22,7 +22,7 @@ async function initialize() {
     return;
   }
   const { createClient } = require('@supabase/supabase-js');
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+  supabase = createClient(supabaseUrl, supabaseSecretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
   const { data: buckets, error: listError } = await supabase.storage.listBuckets();

@@ -304,7 +304,7 @@ let server;
 
 async function startServer() {
   if (process.env.RENDER === 'true' && (db.kind !== 'postgres' || storage.kind !== 'supabase')) {
-    throw new Error('Render 免费部署缺少 DATABASE_URL、SUPABASE_URL 或 SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Render 免费部署缺少 DATABASE_URL、SUPABASE_URL 或 SUPABASE_SECRET_KEY');
   }
   await Promise.all([db.initialize(), storage.initialize()]);
   server = app.listen(port, host, () => {

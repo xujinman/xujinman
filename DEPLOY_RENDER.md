@@ -9,9 +9,9 @@
 3. 在项目顶部点击 `Connect`，复制 **Session pooler** 连接串（端口 5432），将其中的 `[YOUR-PASSWORD]` 换成数据库密码。这就是 `DATABASE_URL`。
 4. 打开 `Project Settings` -> `API`：
    - Project URL 是 `SUPABASE_URL`。
-   - `service_role` Secret 是 `SUPABASE_SERVICE_ROLE_KEY`。
+   - Secret key（格式 `sb_secret_...`）是 `SUPABASE_SECRET_KEY`。
 
-`service_role` 拥有管理权限，只能放在 Render Secret 中，绝不能写入前端、Git 仓库或发给其他人。
+Secret key 拥有管理权限，只能放在 Render Secret 中，绝不能写入前端、Git 仓库或发给其他人。代码也兼容旧版 `service_role` key，但新项目应优先使用 Secret key。
 
 如果数据库密码包含 `@`、`#`、`:`、`/` 等 URL 特殊字符，需要先进行 URL 编码后再放入连接串；最省事的做法是在创建项目时使用足够长的字母和数字组合。
 
@@ -25,7 +25,7 @@
 4. Render 读取 `render.yaml` 后会要求填写：
    - `DATABASE_URL`：Supabase Session pooler 连接串。
    - `SUPABASE_URL`：Supabase Project URL。
-   - `SUPABASE_SERVICE_ROLE_KEY`：Supabase `service_role` Secret。
+   - `SUPABASE_SECRET_KEY`：Supabase Secret key（`sb_secret_...`）。
    - `REGISTRATION_INVITE_CODE`：自己设置至少 12 位的邀请码。
 5. 确认创建。配置中的 `plan: free` 不需要持久化磁盘或付费实例。
 
