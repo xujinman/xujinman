@@ -3,10 +3,13 @@ const { Pool } = require('pg');
 
 const projectRoot = path.resolve(__dirname, '..');
 const databaseUrl = new URL(process.env.DATABASE_URL);
-if (!databaseUrl.searchParams.has('sslmode')) databaseUrl.searchParams.set('sslmode', 'require');
+// node-postgres 兼容 PostgreSQL 的 require 语义：连接始终加密，但不要求系统证书库验证 Pooler 证书链。
+databaseUrl.searchParams.delete('sslmode');
+databaseUrl.searchParams.delete('sslrootcert');
 
 const pool = new Pool({
   connectionString: databaseUrl.toString(),
+  ssl: { rejectUnauthorized: false },
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000
