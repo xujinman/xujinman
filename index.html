@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>研途 · 个人考研管理</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="auth-locked">
+  <section class="auth-screen" id="authScreen">
+    <div class="auth-visual">
+      <div class="auth-brand"><div class="brand-mark">研</div><div><strong>研途</strong><span>个人考研管理</span></div></div>
+      <div class="auth-copy"><span>YOUR STUDY, YOUR JOURNEY</span><h1>把每一次努力，<br />都留在自己的研途里。</h1><p>个人目标、每日任务、复习进度、模考成绩与学习笔记，登录后都安全保存在你的独立账户中。</p></div>
+      <div class="auth-feature-list"><span>✓ 独立学习空间</span><span>✓ 密码加密保存</span><span>✓ 数据按用户隔离</span></div>
+    </div>
+    <div class="auth-panel-wrap">
+      <div class="auth-panel">
+        <div class="auth-mobile-brand"><div class="brand-mark">研</div><strong>研途</strong></div>
+        <div class="auth-tabs"><button class="active" type="button" data-auth-tab="login">登录</button><button type="button" data-auth-tab="register">注册</button></div>
+        <form id="loginForm" class="auth-form">
+          <div class="auth-heading"><span class="card-kicker">WELCOME BACK</span><h2>登录你的学习空间</h2><p>继续查看属于你的目标与复习记录。</p></div>
+          <label>账号<input id="loginUsername" required autocomplete="username" placeholder="请输入账号" /></label>
+          <label>密码<div class="password-field"><input id="loginPassword" type="password" required autocomplete="current-password" placeholder="请输入密码" /><button class="toggle-password" type="button" aria-label="显示密码">◉</button></div></label>
+          <button class="primary-button auth-submit" type="submit">登录</button>
+        </form>
+        <form id="registerForm" class="auth-form hidden">
+          <div class="auth-heading"><span class="card-kicker">CREATE ACCOUNT</span><h2>创建个人账户</h2><p>账户与学习数据将安全保存在服务端数据库中。</p></div>
+          <div class="form-grid"><label>账号<input id="registerUsername" required minlength="3" maxlength="20" autocomplete="username" placeholder="3-20 位字母、数字或下划线" /></label><label>昵称<input id="registerDisplayName" required maxlength="20" placeholder="例如：小研同学" /></label></div>
+          <label>密码<div class="password-field"><input id="registerPassword" type="password" required minlength="8" autocomplete="new-password" placeholder="至少 8 位" /><button class="toggle-password" type="button" aria-label="显示密码">◉</button></div></label>
+          <label>确认密码<input id="registerPasswordConfirm" type="password" required minlength="8" autocomplete="new-password" placeholder="请再次输入密码" /></label>
+          <label>注册邀请码（如部署者已启用）<input id="registerInviteCode" autocomplete="one-time-code" placeholder="未启用时可以留空" /></label>
+          <button class="primary-button auth-submit" type="submit">注册并进入</button>
+        </form>
+        <div class="auth-message" id="authMessage" role="status"></div>
+        <p class="auth-notice">服务端账户模式 · 密码加密保存 · 数据按用户隔离</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">研</div>
+        <div>
+          <strong>研途</strong>
+          <span>个人考研管理</span>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span>学习总览</button>
+        <button class="nav-item" data-page="tasks"><span>✓</span>每日任务</button>
+        <button class="nav-item" data-page="progress"><span>◫</span>复习进度</button>
+        <button class="nav-item" data-page="scores"><span>↗</span>成绩分析</button>
+        <button class="nav-item" data-page="schools"><span>◎</span>目标院校</button>
+        <button class="nav-item" data-page="notes"><span>✎</span>学习笔记</button>
+      </nav>
+
+      <div class="sidebar-goal">
+        <div class="goal-topline">
+          <span>本周目标</span>
+          <strong id="weeklyPercent">76%</strong>
+        </div>
+        <div class="progress-track small"><span style="width: 76%"></span></div>
+        <p>已学习 26.5 / 35 小时</p>
+      </div>
+
+      <button class="profile-card" id="openProfileModal" type="button">
+        <div class="avatar" id="sidebarAvatar">研</div>
+        <div>
+          <strong id="sidebarDisplayName">考研学习者</strong>
+          <span id="sidebarUsername">个人账户</span>
+        </div>
+        <span class="profile-arrow">›</span>
+      </button>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="menu-button" id="menuButton" aria-label="打开菜单">☰</button>
+        <div>
+          <p class="eyebrow" id="todayText">今天</p>
+          <h1><span id="greetingText">晚上好</span>，继续向目标靠近</h1>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-button" id="focusButton">开始专注</button>
+          <button class="primary-button" id="openTaskModal">＋ 新建任务</button>
+        </div>
+      </header>
+
+      <section class="page active" id="dashboard-page">
+        <section class="hero-grid">
+          <article class="countdown-card">
+            <div>
+              <span class="card-kicker">考试倒计时</span>
+              <h2><span id="daysLeft">148</span><small>天</small></h2>
+              <p id="countdownDescription">距离初试还有一段时间，保持稳定节奏</p>
+            </div>
+            <div class="countdown-ring">
+              <span>保持节奏</span>
+              <strong>每日进步</strong>
+            </div>
+          </article>
+
+          <article class="quote-card">
+            <div class="quote-icon">“</div>
+            <p>真正拉开差距的，往往不是某一天学了多久，而是每天都没有停下来。</p>
+            <span>今日寄语</span>
+          </article>
+        </section>
+
+        <section class="stats-grid">
+          <article class="stat-card">
+            <div class="stat-icon">◷</div>
+            <div><span>今日学习</span><strong id="todayHours">4.5 小时</strong><small>比昨日多 38 分钟</small></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon">✓</div>
+            <div><span>今日任务</span><strong><b id="completedCount">3</b> / <b id="totalCount">6</b></strong><small>完成率 <b id="taskRate">50%</b></small></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon">▥</div>
+            <div><span>连续打卡</span><strong>18 天</strong><small>本月已学习 22 天</small></div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-icon">↗</div>
+            <div><span>最近模考</span><strong id="dashboardLatestTotal">342 分</strong><small id="dashboardScoreDelta">较上次提升 16 分</small></div>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel task-panel">
+            <div class="panel-header">
+              <div><span class="card-kicker">今日安排</span><h3>每日任务</h3></div>
+              <button class="text-button" id="viewAllTasks">查看全部</button>
+            </div>
+            <div class="task-list" id="taskList"></div>
+          </article>
+
+          <article class="panel progress-panel">
+            <div class="panel-header">
+              <div><span class="card-kicker">整体进度</span><h3>科目复习</h3></div>
+              <span class="muted">第一轮</span>
+            </div>
+            <div class="subject-list">
+              <div class="subject-row" data-dashboard-subject="数学"><div class="subject-head"><span><i class="dot math"></i>数学</span><b>68%</b></div><div class="progress-track"><span class="math-bar" style="width: 68%"></span></div><small>强化阶段 · 高数强化、线代基础</small></div>
+              <div class="subject-row" data-dashboard-subject="英语"><div class="subject-head"><span><i class="dot english"></i>英语</span><b>74%</b></div><div class="progress-track"><span class="english-bar" style="width: 74%"></span></div><small>强化阶段 · 阅读真题、单词二轮</small></div>
+              <div class="subject-row" data-dashboard-subject="政治"><div class="subject-head"><span><i class="dot politics"></i>政治</span><b>35%</b></div><div class="progress-track"><span class="politics-bar" style="width: 35%"></span></div><small>基础阶段 · 马原基础、每日选择题</small></div>
+              <div class="subject-row" data-dashboard-subject="专业课"><div class="subject-head"><span><i class="dot major"></i>专业课</span><b>61%</b></div><div class="progress-track"><span class="major-bar" style="width: 61%"></span></div><small>强化阶段 · 知识框架、真题整理</small></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="content-grid lower-grid">
+          <article class="panel chart-panel">
+            <div class="panel-header">
+              <div><span class="card-kicker">最近 7 天</span><h3>学习时长</h3></div>
+              <strong>26.5 小时</strong>
+            </div>
+            <div class="chart" aria-label="最近七天学习时长柱状图">
+              <div class="chart-y"><span>6h</span><span>4h</span><span>2h</span><span>0h</span></div>
+              <div class="bars">
+                <div><span style="height:48%"></span><small>周四</small></div>
+                <div><span style="height:62%"></span><small>周五</small></div>
+                <div><span style="height:35%"></span><small>周六</small></div>
+                <div><span style="height:72%"></span><small>周日</small></div>
+                <div><span style="height:58%"></span><small>周一</small></div>
+                <div><span style="height:84%"></span><small>周二</small></div>
+                <div class="today"><span style="height:76%"></span><small>今天</small></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel score-panel">
+            <div class="panel-header">
+              <div><span class="card-kicker">目标管理</span><h3>模考成绩</h3></div>
+              <span class="positive" id="dashboardScoreChange">+16</span>
+            </div>
+            <div class="score-main"><strong>342</strong><span id="dashboardScoreTarget">/ 400 目标</span></div>
+            <div class="score-breakdown">
+              <div><span>政治</span><b id="dashboardPoliticsScore">68</b></div>
+              <div><span>英语</span><b id="dashboardEnglishScore">72</b></div>
+              <div><span>数学</span><b id="dashboardMathScore">106</b></div>
+              <div><span>专业课</span><b id="dashboardMajorScore">96</b></div>
+            </div>
+            <div class="score-tip" id="dashboardScoreTip">下阶段优先提升：专业课主观题与数学计算准确率</div>
+          </article>
+        </section>
+      </section>
+
+      <section class="page" id="tasks-page">
+        <div class="page-heading">
+          <div><span class="card-kicker">今日计划</span><h2>每日任务</h2><p>把今天要做的事安排清楚，一项一项完成。</p></div>
+          <button class="primary-button page-add-task">＋ 新建任务</button>
+        </div>
+        <div class="task-summary-grid">
+          <article><span>任务总数</span><strong id="taskPageTotal">0</strong></article>
+          <article><span>已完成</span><strong id="taskPageDone">0</strong></article>
+          <article><span>预计投入</span><strong id="taskPageMinutes">0 分钟</strong></article>
+          <article class="completion-summary"><span>完成率</span><strong id="taskPageRate">0%</strong></article>
+        </div>
+        <article class="panel task-workspace">
+          <div class="task-toolbar">
+            <label class="date-control">查看日期<input type="date" id="taskDateFilter" /></label>
+            <div class="filter-tabs" id="taskStatusFilter">
+              <button class="active" data-status="all">全部</button><button data-status="todo">待完成</button><button data-status="done">已完成</button>
+            </div>
+          </div>
+          <div class="task-list full-task-list" id="allTaskList"></div>
+          <div class="empty-state" id="taskEmptyState"><span>✓</span><h3>这一天还没有任务</h3><p>新建一个小目标，开始今天的复习。</p></div>
+        </article>
+      </section>
+
+      <section class="page" id="progress-page">
+        <div class="page-heading">
+          <div><span class="card-kicker">阶段管理</span><h2>复习进度</h2><p>拖动进度条，记录每门科目当前所处的复习阶段。</p></div>
+          <div class="overall-progress"><span>总体进度</span><strong id="overallProgress">60%</strong></div>
+        </div>
+        <div class="progress-editor-grid" id="progressEditor"></div>
+      </section>
+      <section class="page" id="scores-page">
+        <div class="page-heading">
+          <div><span class="card-kicker">单科追踪</span><h2>成绩分析</h2><p>选择科目并录入单科成绩，分别观察每一科的变化趋势。</p></div>
+          <button class="primary-button" id="openScoreModal">＋ 录入成绩</button>
+        </div>
+        <div class="score-summary-grid">
+          <article class="latest-score-summary"><span id="latestScoreLabel">政治最近成绩</span><strong id="latestScoreSummary">0</strong><small id="latestExamName">暂无记录</small></article>
+          <article><span>该科最高</span><strong id="bestScoreSummary">0</strong><small id="scoreFullMarkHint">/ 100 分</small></article>
+          <article><span>该科平均</span><strong id="averageScoreSummary">0</strong><small id="scoreRecordCount">共 0 次记录</small></article>
+          <article><span>距离单科目标</span><strong id="scoreGapSummary">0</strong><small id="scoreGapHint">继续保持</small></article>
+        </div>
+        <div class="score-analysis-grid">
+          <article class="panel trend-panel">
+            <div class="panel-header"><div><span class="card-kicker">变化趋势</span><h3 id="trendChartTitle">政治成绩曲线</h3></div><select id="trendSubject" aria-label="选择趋势科目"><option>政治</option><option>英语</option><option>数学</option><option>专业课</option></select></div>
+            <div class="score-chart-wrap" id="scoreChartWrap"><svg id="scoreTrendChart" viewBox="0 0 720 250" role="img" aria-label="模考成绩趋势图"></svg></div>
+            <div class="empty-chart" id="emptyScoreChart">至少录入一条成绩后即可查看趋势</div>
+          </article>
+          <article class="panel subject-analysis-panel">
+            <div class="panel-header"><div><span class="card-kicker">目标对比</span><h3>四科最新成绩</h3></div><span class="muted" id="scoreAnalysisDate">分别取各科最新记录</span></div>
+            <div class="subject-score-analysis" id="subjectScoreAnalysis"></div>
+          </article>
+        </div>
+        <article class="panel score-history-panel">
+          <div class="panel-header"><div><span class="card-kicker">历史记录</span><h3 id="scoreHistoryTitle">政治成绩记录</h3></div><span class="muted">按日期从新到旧</span></div>
+          <div class="score-table-wrap">
+            <table class="score-table">
+              <thead><tr><th>记录名称</th><th>日期</th><th>科目</th><th>成绩</th><th>单科目标</th><th>目标完成度</th><th>操作</th></tr></thead>
+              <tbody id="scoreHistoryBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="scoreEmptyState"><span>↗</span><h3>还没有模考成绩</h3><p>录入第一次成绩，开始追踪你的进步。</p></div>
+        </article>
+      </section>
+      <section class="page" id="schools-page">
+        <div class="page-heading">
+          <div><span class="card-kicker">目标管理</span><h2>目标院校</h2><p>明确院校与分数目标，让每一天的努力更有方向。</p></div>
+        </div>
+        <div class="school-layout">
+          <article class="panel school-form-panel">
+            <div class="panel-header"><div><span class="card-kicker">基础信息</span><h3>设置报考目标</h3></div><span class="save-status" id="schoolSaveStatus">自动保存至本机</span></div>
+            <form id="schoolForm">
+              <div class="form-grid">
+                <label>目标院校<input id="schoolName" required placeholder="例如：浙江大学" /></label>
+                <label>报考专业<input id="majorName" required placeholder="例如：计算机科学与技术" /></label>
+              </div>
+              <label>初试日期<input id="examDate" type="date" required /></label>
+              <div class="score-form-title"><div><strong>各科目标分数</strong><span>政治、英语满分 100，数学、专业课满分 150</span></div><b>总分 <em id="targetScoreTotal">400</em> / 500</b></div>
+              <div class="score-input-grid">
+                <label><span><i class="dot politics"></i>政治</span><input id="scorePolitics" type="number" min="0" max="100" required /></label>
+                <label><span><i class="dot english"></i>英语</span><input id="scoreEnglish" type="number" min="0" max="100" required /></label>
+                <label><span><i class="dot math"></i>数学</span><input id="scoreMath" type="number" min="0" max="150" required /></label>
+                <label><span><i class="dot major"></i>专业课</span><input id="scoreMajor" type="number" min="0" max="150" required /></label>
+              </div>
+              <button class="primary-button full" type="submit">保存目标</button>
+            </form>
+          </article>
+          <article class="school-preview" id="schoolPreview">
+            <span class="preview-kicker">MY DREAM SCHOOL</span>
+            <div class="school-emblem">研</div>
+            <h3 id="previewSchoolName">浙江大学</h3>
+            <p id="previewMajorName">计算机科学与技术</p>
+            <div class="preview-score"><strong id="previewTotalScore">400</strong><span>目标总分</span></div>
+            <div class="preview-date"><span>距离初试</span><b id="previewDays">148 天</b></div>
+          </article>
+        </div>
+      </section>
+      <section class="page" id="notes-page">
+        <div class="page-heading">
+          <div><span class="card-kicker">知识沉淀</span><h2>学习笔记</h2><p>记录知识点、错题与复盘，也可以上传图片保存题目和手写笔记。</p></div>
+          <button class="primary-button" id="openNoteModal">＋ 新建笔记</button>
+        </div>
+        <div class="notes-overview">
+          <article><div class="note-stat-icon">✎</div><div><span>全部笔记</span><strong id="noteTotalCount">0</strong></div></article>
+          <article><div class="note-stat-icon image">▧</div><div><span>图片资料</span><strong id="noteImageCount">0</strong></div></article>
+          <article><div class="note-stat-icon pin">⌖</div><div><span>置顶笔记</span><strong id="notePinnedCount">0</strong></div></article>
+        </div>
+        <article class="panel notes-workspace">
+          <div class="notes-toolbar">
+            <label class="note-search"><span>⌕</span><input id="noteSearch" type="search" placeholder="搜索标题或笔记内容" /></label>
+            <select id="noteSubjectFilter" aria-label="按科目筛选">
+              <option value="all">全部科目</option><option>数学</option><option>英语</option><option>政治</option><option>专业课</option><option>其他</option>
+            </select>
+          </div>
+          <div class="notes-grid" id="notesGrid"></div>
+          <div class="empty-state note-empty" id="noteEmptyState"><span>✎</span><h3>还没有找到笔记</h3><p>记录今天学到的第一个知识点吧。</p></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="taskModal">
+    <div class="modal-card">
+      <div class="modal-header"><div><span class="card-kicker">添加计划</span><h3>新建学习任务</h3></div><button id="closeTaskModal">×</button></div>
+      <form id="taskForm">
+        <label>任务名称<input id="taskTitle" required placeholder="例如：完成高数第 3 章例题" /></label>
+        <div class="form-grid">
+          <label>所属科目<select id="taskSubject"><option>数学</option><option>英语</option><option>政治</option><option>专业课</option></select></label>
+          <label>预计时长<input id="taskDuration" type="number" min="10" value="60" /></label>
+        </div>
+        <div class="form-grid">
+          <label>计划日期<input id="taskDate" type="date" required /></label>
+          <label>优先级<select id="taskPriority"><option>高</option><option selected>中</option><option>低</option></select></label>
+        </div>
+        <button class="primary-button full" type="submit">保存任务</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="noteModal">
+    <div class="modal-card note-modal-card">
+      <div class="modal-header"><div><span class="card-kicker">知识沉淀</span><h3 id="noteModalTitle">新建学习笔记</h3></div><button id="closeNoteModal" type="button">×</button></div>
+      <form id="noteForm">
+        <input id="noteId" type="hidden" />
+        <label>笔记标题<input id="noteTitle" required maxlength="60" placeholder="例如：二重积分换元法易错点" /></label>
+        <div class="form-grid">
+          <label>所属科目<select id="noteSubject"><option>数学</option><option>英语</option><option>政治</option><option>专业课</option><option>其他</option></select></label>
+          <label>笔记类型<select id="noteType"><option>知识点</option><option>错题</option><option>背诵</option><option>复盘</option><option>资料</option></select></label>
+        </div>
+        <label>笔记内容<textarea id="noteContent" rows="7" maxlength="5000" placeholder="写下知识点、解题思路或复盘内容……"></textarea></label>
+        <div class="image-upload-section">
+          <div class="upload-heading"><div><strong>图片附件</strong><span>最多 4 张，上传后会自动压缩并保存在本机</span></div><b id="noteImageLimit">0 / 4</b></div>
+          <label class="image-dropzone" id="imageDropzone">
+            <input id="noteImages" type="file" accept="image/*" multiple />
+            <span class="upload-icon">＋</span><strong>选择图片</strong><small>支持 JPG、PNG、WEBP 等格式</small>
+          </label>
+          <div class="image-preview-grid" id="imagePreviewGrid"></div>
+        </div>
+        <div class="modal-actions"><button class="ghost-button" id="cancelNote" type="button">取消</button><button class="primary-button" id="saveNoteButton" type="submit">保存笔记</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="scoreModal">
+    <div class="modal-card score-modal-card">
+      <div class="modal-header"><div><span class="card-kicker">单科记录</span><h3 id="scoreModalTitle">录入单科成绩</h3></div><button id="closeScoreModal" type="button">×</button></div>
+      <form id="scoreForm">
+        <input id="scoreRecordId" type="hidden" />
+        <div class="form-grid">
+          <label>考试名称<input id="examName" required maxlength="40" placeholder="例如：8 月阶段模考" /></label>
+          <label>考试日期<input id="scoreExamDate" type="date" required /></label>
+        </div>
+        <div class="score-entry-heading"><div><strong>选择要录入的科目</strong><span>每次只记录一科，之后可按科目查看趋势</span></div><b>满分 <em id="selectedSubjectFullMark">100</em></b></div>
+        <div class="form-grid single-score-entry">
+          <label>考试科目<select id="entrySubject"><option>政治</option><option>英语</option><option>数学</option><option>专业课</option></select></label>
+          <label>本次成绩<input id="entryScore" type="number" min="0" max="100" required placeholder="0" /></label>
+        </div>
+        <label>本次复盘（选填）<textarea id="scoreReview" rows="3" maxlength="500" placeholder="记录失分原因和下一步改进计划……"></textarea></label>
+        <div class="modal-actions"><button class="ghost-button" id="cancelScore" type="button">取消</button><button class="primary-button" type="submit">保存成绩</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="profileModal">
+    <div class="modal-card profile-modal-card">
+      <div class="modal-header"><div><span class="card-kicker">PERSONAL ACCOUNT</span><h3>个人中心</h3></div><button id="closeProfileModal" type="button">×</button></div>
+      <div class="profile-hero"><div class="profile-large-avatar" id="profileLargeAvatar">研</div><div><h3 id="profileDisplayName">考研学习者</h3><p>@<span id="profileUsername">username</span> · <span id="profileCreatedAt">创建于今天</span></p></div></div>
+      <div class="profile-data-summary"><div><strong id="profileTaskCount">0</strong><span>任务</span></div><div><strong id="profileScoreCount">0</strong><span>成绩</span></div><div><strong id="profileNoteCount">0</strong><span>笔记</span></div></div>
+      <form id="profileForm" class="profile-section-form">
+        <div class="section-form-title"><strong>基本资料</strong><span>修改你的显示昵称</span></div>
+        <label>昵称<input id="profileDisplayNameInput" required maxlength="20" /></label>
+        <button class="ghost-button" type="submit">保存资料</button>
+      </form>
+      <form id="passwordForm" class="profile-section-form">
+        <div class="section-form-title"><strong>修改密码</strong><span>修改后仍保持当前登录状态</span></div>
+        <div class="form-grid"><label>当前密码<input id="currentPassword" type="password" required autocomplete="current-password" /></label><label>新密码<input id="newPassword" type="password" required minlength="8" autocomplete="new-password" /></label></div>
+        <button class="ghost-button" type="submit">更新密码</button>
+      </form>
+      <button class="logout-button" id="logoutButton" type="button">退出当前账户</button>
+    </div>
+  </div>
+
+  <div class="focus-toast" id="focusToast">专注模式已开始：25:00</div>
+  <script src="app.js"></script>
+</body>
+</html>
