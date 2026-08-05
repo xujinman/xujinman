@@ -3,7 +3,8 @@ const STORAGE_KEYS = {
   school: 'yantu.school.v1',
   progress: 'yantu.progress.v1',
   notes: 'yantu.notes.v1',
-  scores: 'yantu.scores.v1'
+  scores: 'yantu.scores.v1',
+  focus: 'yantu.focus.v1'
 };
 const LEGACY_STORAGE_KEYS = { ...STORAGE_KEYS };
 let activeUser = null;
@@ -175,19 +176,37 @@ const scoreDataNeededMigration = storedScoreRecords.some(record => record.scores
 let scoreRecords = normalizeScoreRecords(storedScoreRecords);
 if (scoreDataNeededMigration) writeStorage(STORAGE_KEYS.scores, scoreRecords);
 
+function normalizeFocusSessions(sessions) {
+  return (Array.isArray(sessions) ? sessions : []).filter(session => {
+    const duration = Number(session.durationSeconds);
+    return session.id && ['countdown', 'stopwatch'].includes(session.mode) && Number.isFinite(duration) && duration > 0 && !Number.isNaN(new Date(session.endedAt).getTime());
+  }).map(session => ({
+    id: String(session.id),
+    subject: String(session.subject || '其他'),
+    mode: session.mode,
+    startedAt: session.startedAt || session.endedAt,
+    endedAt: session.endedAt,
+    durationSeconds: Math.round(Number(session.durationSeconds))
+  }));
+}
+
+let focusSessions = normalizeFocusSessions(readStorage(STORAGE_KEYS.focus, []));
+
 const legacyDataSnapshot = {
   tasks: cloneData(tasks),
   school: cloneData(school),
   progress: cloneData(progress),
   notes: cloneData(notes),
-  scores: cloneData(scoreRecords)
+  scores: cloneData(scoreRecords),
+  focus: cloneData(focusSessions)
 };
 const emptyUserSnapshot = {
   tasks: [],
   school: { schoolName: '', majorName: '', examDate: '', scores: { '政治': 0, '英语': 0, '数学': 0, '专业课': 0 } },
   progress: Object.fromEntries(Object.keys(subjectMeta).map(subject => [subject, { percent: 0, stage: '基础阶段', note: '' }])),
   notes: [],
-  scores: []
+  scores: [],
+  focus: []
 };
 
 const taskList = document.getElementById('taskList');
@@ -859,27 +878,344 @@ function showToast(message) {
 }
 
 let focusTimer;
-document.getElementById('focusButton').addEventListener('click', () => {
+let focusState = createDefaultFocusState();
+
+function createDefaultFocusState(overrides = {}) {
+  return {
+    mode: 'countdown',
+    targetSeconds: 25 * 60,
+    subject: '数学',
+    accumulatedSeconds: 0,
+    running: false,
+    startedAt: null,
+    sessionStartedAt: null,
+    completed: false,
+    ...overrides
+  };
+}
+
+function focusTimerStorageKey() {
+  return activeUser ? `yantu.user.${activeUser.id}.focus-timer.v1` : null;
+}
+
+function saveFocusTimerState() {
+  const key = focusTimerStorageKey();
+  if (key) localStorage.setItem(key, JSON.stringify(focusState));
+}
+
+function currentFocusElapsed() {
+  const runningSeconds = focusState.running && focusState.startedAt ? Math.floor((Date.now() - focusState.startedAt) / 1000) : 0;
+  return Math.max(0, Math.min(86400, Number(focusState.accumulatedSeconds || 0) + runningSeconds));
+}
+
+function formatTimerValue(seconds, alwaysHours = false) {
+  const value = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(value / 3600);
+  const minutes = Math.floor(value % 3600 / 60);
+  const remainingSeconds = value % 60;
+  if (alwaysHours || hours > 0) return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function renderFocusTimer() {
+  const elapsed = currentFocusElapsed();
+  const countdown = focusState.mode === 'countdown';
+  const displaySeconds = countdown ? Math.max(0, focusState.targetSeconds - elapsed) : elapsed;
+  const progress = countdown ? Math.min(1, elapsed / focusState.targetSeconds) : (elapsed % 3600) / 3600;
+  document.getElementById('focusClock').textContent = formatTimerValue(displaySeconds, !countdown && elapsed >= 3600);
+  document.getElementById('focusModeLabel').textContent = countdown ? '倒计时' : '从 0 开始计时';
+  document.getElementById('focusClockStatus').textContent = focusState.completed ? '本次已记录' : focusState.running ? `正在专注 · ${focusState.subject}` : elapsed > 0 ? '已暂停' : '准备开始';
+  const ring = document.getElementById('focusClockRing');
+  ring.style.setProperty('--focus-progress', `${Math.round(progress * 360)}deg`);
+  ring.classList.toggle('running', focusState.running);
+
+  document.querySelectorAll('[data-focus-mode]').forEach(button => button.classList.toggle('active', button.dataset.focusMode === focusState.mode));
+  document.getElementById('focusDurationSettings').classList.toggle('hidden', !countdown);
+  document.querySelectorAll('[data-minutes]').forEach(button => button.classList.toggle('active', Number(button.dataset.minutes) * 60 === focusState.targetSeconds));
+  document.getElementById('focusCustomMinutes').value = Math.round(focusState.targetSeconds / 60);
+  document.getElementById('focusSubject').value = focusState.subject;
+
+  const configurationLocked = focusState.running || (elapsed > 0 && !focusState.completed);
+  document.getElementById('focusSubject').disabled = configurationLocked;
+  document.querySelectorAll('#focusModeTabs button, #focusDurationButtons button').forEach(button => button.disabled = configurationLocked);
+  document.getElementById('focusCustomMinutes').disabled = configurationLocked;
+  const startPause = document.getElementById('focusStartPause');
+  startPause.textContent = focusState.running ? '暂停' : focusState.completed ? '再来一次' : elapsed > 0 ? '继续' : '开始专注';
+  document.getElementById('focusFinish').disabled = elapsed < 1 || focusState.completed;
+  document.getElementById('focusReset').disabled = elapsed < 1 && !focusState.running;
+
+  const badge = document.getElementById('focusLiveBadge');
+  badge.className = `focus-live-badge ${focusState.running ? 'running' : elapsed > 0 && !focusState.completed ? 'paused' : ''}`;
+  badge.querySelector('span').textContent = focusState.running ? `${focusState.subject} · ${formatTimerValue(elapsed)}` : elapsed > 0 && !focusState.completed ? '计时已暂停' : '尚未开始';
+}
+
+function ensureFocusTicker() {
   clearInterval(focusTimer);
-  clearTimeout(showToast.hideTimer);
-  let seconds = 25 * 60;
-  const toast = document.getElementById('focusToast');
-  toast.classList.add('show');
-  const update = () => {
-    const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const remainingSeconds = String(seconds % 60).padStart(2, '0');
-    toast.textContent = `专注模式已开始：${minutes}:${remainingSeconds}`;
-    if (seconds <= 0) {
-      clearInterval(focusTimer);
-      toast.textContent = '本次专注完成，休息一下吧！';
-      setTimeout(() => toast.classList.remove('show'), 3500);
+  if (!focusState.running) return;
+  focusTimer = setInterval(() => {
+    const elapsed = currentFocusElapsed();
+    if ((focusState.mode === 'countdown' && elapsed >= focusState.targetSeconds) || elapsed >= 86400) {
+      finishFocusSession(true);
       return;
     }
-    seconds--;
-  };
-  update();
-  focusTimer = setInterval(update, 1000);
+    renderFocusTimer();
+  }, 500);
+}
+
+function restoreFocusTimerState() {
+  clearInterval(focusTimer);
+  const key = focusTimerStorageKey();
+  const stored = key ? readStorage(key, null) : null;
+  focusState = createDefaultFocusState(stored && typeof stored === 'object' ? stored : {});
+  if (!['countdown', 'stopwatch'].includes(focusState.mode)) focusState.mode = 'countdown';
+  focusState.targetSeconds = Math.max(60, Math.min(4 * 3600, Number(focusState.targetSeconds) || 1500));
+  focusState.subject = ['数学', '英语', '政治', '专业课', '其他'].includes(focusState.subject) ? focusState.subject : '其他';
+  if (focusState.running && ((focusState.mode === 'countdown' && currentFocusElapsed() >= focusState.targetSeconds) || currentFocusElapsed() >= 86400)) {
+    finishFocusSession(true);
+    return;
+  }
+  renderFocusTimer();
+  ensureFocusTicker();
+}
+
+function startOrPauseFocus() {
+  if (focusState.running) {
+    focusState.accumulatedSeconds = currentFocusElapsed();
+    focusState.running = false;
+    focusState.startedAt = null;
+    saveFocusTimerState();
+    ensureFocusTicker();
+    renderFocusTimer();
+    return;
+  }
+  if (focusState.completed) {
+    focusState.accumulatedSeconds = 0;
+    focusState.completed = false;
+    focusState.sessionStartedAt = null;
+  }
+  focusState.subject = document.getElementById('focusSubject').value;
+  focusState.running = true;
+  focusState.startedAt = Date.now();
+  focusState.sessionStartedAt ||= new Date().toISOString();
+  saveFocusTimerState();
+  ensureFocusTicker();
+  renderFocusTimer();
+}
+
+function finishFocusSession(automatic = false, silent = false) {
+  let elapsed = currentFocusElapsed();
+  if (automatic && focusState.mode === 'countdown') elapsed = focusState.targetSeconds;
+  clearInterval(focusTimer);
+  focusState.running = false;
+  focusState.startedAt = null;
+  focusState.accumulatedSeconds = elapsed;
+  if (elapsed < 1) {
+    renderFocusTimer();
+    return;
+  }
+  const endedAt = new Date();
+  const fallbackStart = new Date(endedAt.getTime() - elapsed * 1000);
+  focusSessions = [{
+    id: crypto.randomUUID(),
+    subject: focusState.subject,
+    mode: focusState.mode,
+    startedAt: focusState.sessionStartedAt || fallbackStart.toISOString(),
+    endedAt: endedAt.toISOString(),
+    durationSeconds: elapsed
+  }, ...focusSessions];
+  focusState.completed = true;
+  saveFocusTimerState();
+  writeStorage(STORAGE_KEYS.focus, focusSessions);
+  renderFocusTimer();
+  renderFocusStats();
+  if (!silent) showToast(automatic ? '倒计时完成，本次专注已记录' : `已记录 ${formatFocusDuration(elapsed)}的专注`);
+}
+
+function resetFocusTimer() {
+  clearInterval(focusTimer);
+  focusState = createDefaultFocusState({ mode: focusState.mode, targetSeconds: focusState.targetSeconds, subject: focusState.subject });
+  saveFocusTimerState();
+  renderFocusTimer();
+}
+
+function formatFocusDuration(seconds) {
+  if (seconds > 0 && seconds < 60) return `${Math.max(1, Math.round(seconds))} 秒`;
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  if (!minutes) return '0 分钟';
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours} 小时${remainder ? ` ${remainder} 分` : ''}`;
+}
+
+function sessionLocalDate(session) {
+  return formatLocalDate(new Date(session.endedAt));
+}
+
+function focusSecondsBetween(start, end) {
+  return focusSessions.reduce((sum, session) => {
+    const endedAt = new Date(session.endedAt);
+    return endedAt >= start && endedAt < end ? sum + session.durationSeconds : sum;
+  }, 0);
+}
+
+function startOfLocalDay(date = new Date()) {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function startOfLocalWeek(date = new Date()) {
+  const result = startOfLocalDay(date);
+  result.setDate(result.getDate() - ((result.getDay() + 6) % 7));
+  return result;
+}
+
+function focusStreak() {
+  const activeDates = new Set(focusSessions.map(sessionLocalDate));
+  const cursor = startOfLocalDay();
+  let streak = 0;
+  while (activeDates.has(formatLocalDate(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function renderFocusChart() {
+  const period = document.getElementById('focusPeriod').value;
+  const now = new Date();
+  const todayDate = startOfLocalDay(now);
+  let dates = [];
+  if (period === 'month') {
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    dates = Array.from({ length: daysInMonth }, (_, index) => new Date(now.getFullYear(), now.getMonth(), index + 1));
+  } else {
+    dates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(todayDate);
+      date.setDate(date.getDate() - 6 + index);
+      return date;
+    });
+  }
+  const values = dates.map(date => {
+    const next = new Date(date);
+    next.setDate(next.getDate() + 1);
+    return focusSecondsBetween(date, next);
+  });
+  const max = Math.max(...values, 1);
+  const chart = document.getElementById('focusChart');
+  const hasData = values.some(Boolean);
+  chart.style.display = hasData ? 'flex' : 'none';
+  document.getElementById('focusChartEmpty').classList.toggle('show', !hasData);
+  document.getElementById('focusChartTitle').textContent = period === 'month' ? `${now.getMonth() + 1} 月每日专注` : '最近 7 天';
+  chart.innerHTML = dates.map((date, index) => {
+    const seconds = values[index];
+    const height = seconds ? Math.max(3, Math.round(seconds / max * 100)) : 0;
+    const valueLabel = seconds >= 3600 ? `${(seconds / 3600).toFixed(1)}h` : seconds >= 60 ? `${Math.round(seconds / 60)}m` : seconds ? `${seconds}s` : '';
+    const dayLabel = period === 'month' ? `${date.getDate()}日` : ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+    return `<div class="focus-chart-column ${formatLocalDate(date) === formatLocalDate(todayDate) ? 'today' : ''}"><b>${valueLabel}</b><div class="focus-chart-bar-track"><i style="height:${height}%"></i></div><small>${dayLabel}</small></div>`;
+  }).join('');
+}
+
+function renderFocusHistory() {
+  const list = document.getElementById('focusHistoryList');
+  const visible = focusSessions.slice(0, 30);
+  list.innerHTML = visible.map(session => {
+    const endedAt = new Date(session.endedAt);
+    return `<div class="focus-history-item" data-focus-id="${escapeAttribute(session.id)}">
+      <div class="focus-history-date"><div><b>${String(endedAt.getDate()).padStart(2, '0')}</b><small>${endedAt.getMonth() + 1}月</small></div></div>
+      <div class="focus-history-main"><strong>${escapeHtml(session.subject)}</strong><span>${session.mode === 'countdown' ? '倒计时' : '正计时'} · ${String(endedAt.getHours()).padStart(2, '0')}:${String(endedAt.getMinutes()).padStart(2, '0')}</span></div>
+      <b class="focus-history-duration">${formatFocusDuration(session.durationSeconds)}</b>
+      <button class="delete-focus-record" type="button" aria-label="删除专注记录">×</button>
+    </div>`;
+  }).join('');
+  document.getElementById('focusHistoryCount').textContent = `${focusSessions.length} 条`;
+  document.getElementById('focusHistoryEmpty').classList.toggle('show', !visible.length);
+  list.style.display = visible.length ? 'block' : 'none';
+  list.querySelectorAll('.delete-focus-record').forEach(button => button.addEventListener('click', () => {
+    const id = button.closest('[data-focus-id]').dataset.focusId;
+    focusSessions = focusSessions.filter(session => session.id !== id);
+    writeStorage(STORAGE_KEYS.focus, focusSessions);
+    renderFocusStats();
+    showToast('专注记录已删除');
+  }));
+}
+
+function renderFocusStats() {
+  const todayStart = startOfLocalDay();
+  const tomorrow = new Date(todayStart); tomorrow.setDate(tomorrow.getDate() + 1);
+  const weekStart = startOfLocalWeek();
+  const nextWeek = new Date(weekStart); nextWeek.setDate(nextWeek.getDate() + 7);
+  const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+  const nextMonth = new Date(todayStart.getFullYear(), todayStart.getMonth() + 1, 1);
+  const todaySeconds = focusSecondsBetween(todayStart, tomorrow);
+  const weekSeconds = focusSecondsBetween(weekStart, nextWeek);
+  const monthSeconds = focusSecondsBetween(monthStart, nextMonth);
+  const todaySessions = focusSessions.filter(session => sessionLocalDate(session) === formatLocalDate(todayStart));
+  const monthSessions = focusSessions.filter(session => {
+    const date = new Date(session.endedAt);
+    return date >= monthStart && date < nextMonth;
+  });
+  const todayMinutes = Math.round(todaySeconds / 60);
+  const todayPercent = Math.min(100, Math.round(todaySeconds / (4 * 3600) * 100));
+  const weekHours = weekSeconds / 3600;
+  const weekPercent = Math.min(100, Math.round(weekHours / 35 * 100));
+
+  const todayLargeValue = todaySeconds > 0 && todaySeconds < 60 ? todaySeconds : todayMinutes >= 60 ? (todaySeconds / 3600).toFixed(1) : todayMinutes;
+  const todayLargeUnit = todaySeconds > 0 && todaySeconds < 60 ? '秒' : todayMinutes >= 60 ? '小时' : '分钟';
+  document.getElementById('focusTodayLarge').innerHTML = `${todayLargeValue}<small>${todayLargeUnit}</small>`;
+  document.getElementById('focusTodaySessions').textContent = todaySessions.length ? `今天已完成 ${todaySessions.length} 次专注` : '尚无专注记录';
+  document.getElementById('focusTodayPercent').textContent = `${todayPercent}%`;
+  document.getElementById('focusTodayBar').style.width = `${todayPercent}%`;
+  document.getElementById('focusSummaryToday').textContent = formatFocusDuration(todaySeconds);
+  document.getElementById('focusSummaryTodayCount').textContent = `${todaySessions.length} 次记录`;
+  document.getElementById('focusSummaryWeek').textContent = `${weekHours.toFixed(1)} 小时`;
+  document.getElementById('focusSummaryMonth').textContent = `${(monthSeconds / 3600).toFixed(1)} 小时`;
+  document.getElementById('focusSummaryMonthCount').textContent = `${monthSessions.length} 次记录`;
+  document.getElementById('focusSummaryStreak').textContent = `${focusStreak()} 天`;
+
+  document.getElementById('todayHours').textContent = todayMinutes >= 60 ? `${(todaySeconds / 3600).toFixed(1)} 小时` : `${todayMinutes} 分钟`;
+  document.getElementById('todayFocusHint').textContent = todaySessions.length ? `已完成 ${todaySessions.length} 次专注` : '今天还没有专注记录';
+  document.getElementById('weeklyPercent').textContent = `${weekPercent}%`;
+  document.getElementById('weeklyGoalBar').style.width = `${weekPercent}%`;
+  document.getElementById('weeklyFocusHours').textContent = weekHours.toFixed(1);
+  renderFocusChart();
+  renderFocusHistory();
+}
+
+document.getElementById('focusButton').addEventListener('click', () => document.querySelector('[data-page="focus"]').click());
+document.getElementById('focusStartPause').addEventListener('click', startOrPauseFocus);
+document.getElementById('focusFinish').addEventListener('click', () => finishFocusSession(false));
+document.getElementById('focusReset').addEventListener('click', resetFocusTimer);
+document.getElementById('focusSubject').addEventListener('change', event => {
+  focusState.subject = event.target.value;
+  saveFocusTimerState();
+  renderFocusTimer();
 });
+document.querySelectorAll('[data-focus-mode]').forEach(button => button.addEventListener('click', () => {
+  if (focusState.running) return;
+  focusState = createDefaultFocusState({ mode: button.dataset.focusMode, targetSeconds: focusState.targetSeconds, subject: focusState.subject });
+  saveFocusTimerState();
+  renderFocusTimer();
+}));
+document.querySelectorAll('[data-minutes]').forEach(button => button.addEventListener('click', () => {
+  if (focusState.running) return;
+  focusState.targetSeconds = Number(button.dataset.minutes) * 60;
+  focusState.accumulatedSeconds = 0;
+  focusState.completed = false;
+  saveFocusTimerState();
+  renderFocusTimer();
+}));
+document.getElementById('focusCustomMinutes').addEventListener('change', event => {
+  if (focusState.running) return;
+  const minutes = Math.max(1, Math.min(240, Number(event.target.value) || 25));
+  focusState.targetSeconds = Math.round(minutes) * 60;
+  focusState.accumulatedSeconds = 0;
+  focusState.completed = false;
+  saveFocusTimerState();
+  renderFocusTimer();
+});
+document.getElementById('focusPeriod').addEventListener('change', renderFocusChart);
 
 function setUserStorageKeys(userId) {
   Object.keys(LEGACY_STORAGE_KEYS).forEach(type => {
@@ -897,7 +1233,8 @@ function legacySnapshotForUsername(username) {
     school: readStorage(`${prefix}.school.v1`, cloneData(emptyUserSnapshot.school)),
     progress: readStorage(`${prefix}.progress.v1`, cloneData(emptyUserSnapshot.progress)),
     notes: readStorage(`${prefix}.notes.v1`, []),
-    scores: normalizeScoreRecords(readStorage(`${prefix}.scores.v1`, []))
+    scores: normalizeScoreRecords(readStorage(`${prefix}.scores.v1`, [])),
+    focus: normalizeFocusSessions(readStorage(`${prefix}.focus.v1`, []))
   };
 }
 
@@ -918,6 +1255,7 @@ async function loadActiveUserData() {
   progress = { ...cloneData(emptyUserSnapshot.progress), ...(data.progress || {}) };
   notes = data.notes || [];
   scoreRecords = normalizeScoreRecords(data.scores || []);
+  focusSessions = normalizeFocusSessions(data.focus || []);
 
   taskDateFilter.value = today;
   taskStatus = 'all';
@@ -931,6 +1269,8 @@ async function loadActiveUserData() {
   renderTasks();
   renderNotes();
   renderScores();
+  restoreFocusTimerState();
+  renderFocusStats();
 }
 
 function setAuthMessage(message, type = 'error') {
@@ -1090,6 +1430,7 @@ document.getElementById('passwordForm').addEventListener('submit', async event =
 });
 
 document.getElementById('logoutButton').addEventListener('click', async () => {
+  if (!focusState.completed && currentFocusElapsed() >= 1) finishFocusSession(false, true);
   await flushAllRemoteWrites();
   try { await api('/auth/logout', { method: 'POST' }); } catch { /* local UI still logs out */ }
   activeUser = null;

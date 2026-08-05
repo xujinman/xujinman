@@ -85,6 +85,18 @@ function initialize() {
       );
       CREATE INDEX IF NOT EXISTS scores_user_subject_date_idx ON score_records(user_id, subject, exam_date);
 
+      CREATE TABLE IF NOT EXISTS focus_sessions (
+        id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject TEXT NOT NULL DEFAULT '其他',
+        timer_mode TEXT NOT NULL,
+        started_at TIMESTAMPTZ NOT NULL,
+        ended_at TIMESTAMPTZ NOT NULL,
+        duration_seconds INTEGER NOT NULL,
+        PRIMARY KEY (user_id, id)
+      );
+      CREATE INDEX IF NOT EXISTS focus_user_ended_idx ON focus_sessions(user_id, ended_at DESC);
+
       CREATE TABLE IF NOT EXISTS notes (
         id TEXT NOT NULL,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -113,6 +125,7 @@ function initialize() {
       ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
       ALTER TABLE subject_progress ENABLE ROW LEVEL SECURITY;
       ALTER TABLE score_records ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE focus_sessions ENABLE ROW LEVEL SECURITY;
       ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
       ALTER TABLE note_images ENABLE ROW LEVEL SECURITY;
     `).catch(error => {
@@ -184,11 +197,12 @@ async function deleteUserSessions(userId) {
 }
 
 async function getBootstrap(userId) {
-  const [schoolResult, tasksResult, progressResult, scoresResult, notesResult, imagesResult] = await Promise.all([
+  const [schoolResult, tasksResult, progressResult, scoresResult, focusResult, notesResult, imagesResult] = await Promise.all([
     pool.query('SELECT * FROM school_targets WHERE user_id = $1', [userId]),
     pool.query('SELECT * FROM tasks WHERE user_id = $1 ORDER BY task_date DESC', [userId]),
     pool.query('SELECT * FROM subject_progress WHERE user_id = $1', [userId]),
     pool.query('SELECT * FROM score_records WHERE user_id = $1 ORDER BY exam_date DESC', [userId]),
+    pool.query('SELECT * FROM focus_sessions WHERE user_id = $1 ORDER BY ended_at DESC', [userId]),
     pool.query('SELECT * FROM notes WHERE user_id = $1 ORDER BY pinned DESC, updated_at DESC', [userId]),
     pool.query('SELECT * FROM note_images WHERE user_id = $1 ORDER BY note_id, position', [userId])
   ]);
@@ -208,6 +222,7 @@ async function getBootstrap(userId) {
     tasks: tasksResult.rows.map(row => ({ id: row.id, title: row.title, subject: row.subject, duration: row.duration, priority: row.priority, date: row.task_date, done: Boolean(row.done) })),
     progress: Object.fromEntries(progressResult.rows.map(row => [row.subject, { percent: row.percent, stage: row.stage, note: row.note }])),
     scores: scoresResult.rows.map(row => ({ id: row.id, name: row.name, date: row.exam_date, subject: row.subject, score: row.score, review: row.review })),
+    focus: focusResult.rows.map(row => ({ id: row.id, subject: row.subject, mode: row.timer_mode, startedAt: new Date(row.started_at).toISOString(), endedAt: new Date(row.ended_at).toISOString(), durationSeconds: row.duration_seconds })),
     notes: notesResult.rows.map(row => ({ id: row.id, title: row.title, subject: row.subject, type: row.note_type, content: row.content, pinned: Boolean(row.pinned), createdAt: Number(row.created_at), updatedAt: Number(row.updated_at), images: imagesByNote.get(row.id) || [] }))
   };
 }
@@ -273,6 +288,21 @@ async function replaceScores(userId, scores) {
   });
 }
 
+async function replaceFocus(userId, sessions) {
+  await withTransaction(async client => {
+    await client.query('DELETE FROM focus_sessions WHERE user_id = $1', [userId]);
+    for (const session of sessions) {
+      const mode = String(session.mode || '');
+      const durationSeconds = Math.round(Number(session.durationSeconds));
+      const startedAt = new Date(session.startedAt);
+      const endedAt = new Date(session.endedAt);
+      if (!['countdown', 'stopwatch'].includes(mode) || !Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 86400 || Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime())) throw new Error('INVALID_DATA');
+      await client.query('INSERT INTO focus_sessions (id, user_id, subject, timer_mode, started_at, ended_at, duration_seconds) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [String(session.id), userId, String(session.subject || '其他').slice(0, 30), mode, startedAt.toISOString(), endedAt.toISOString(), durationSeconds]);
+    }
+  });
+}
+
 async function replaceNotes(userId, notes) {
   await withTransaction(async client => {
     await client.query('DELETE FROM notes WHERE user_id = $1', [userId]);
@@ -293,6 +323,7 @@ async function replaceUserData(userId, type, payload) {
   if (type === 'school' && payload && typeof payload === 'object') return replaceSchool(userId, payload);
   if (type === 'progress' && payload && typeof payload === 'object') return replaceProgress(userId, payload);
   if (type === 'scores' && Array.isArray(payload)) return replaceScores(userId, payload);
+  if (type === 'focus' && Array.isArray(payload)) return replaceFocus(userId, payload);
   if (type === 'notes' && Array.isArray(payload)) return replaceNotes(userId, payload);
   throw new Error('INVALID_DATA_TYPE');
 }

@@ -74,6 +74,18 @@ database.exec(`
   );
   CREATE INDEX IF NOT EXISTS scores_user_subject_date_idx ON score_records(user_id, subject, exam_date);
 
+  CREATE TABLE IF NOT EXISTS focus_sessions (
+    id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL DEFAULT '其他',
+    timer_mode TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    PRIMARY KEY (user_id, id)
+  );
+  CREATE INDEX IF NOT EXISTS focus_user_ended_idx ON focus_sessions(user_id, ended_at DESC);
+
   CREATE TABLE IF NOT EXISTS notes (
     id TEXT NOT NULL,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -173,6 +185,7 @@ function getBootstrap(userId) {
   const taskRows = database.prepare('SELECT * FROM tasks WHERE user_id = ? ORDER BY task_date DESC').all(userId);
   const progressRows = database.prepare('SELECT * FROM subject_progress WHERE user_id = ?').all(userId);
   const scoreRows = database.prepare('SELECT * FROM score_records WHERE user_id = ? ORDER BY exam_date DESC').all(userId);
+  const focusRows = database.prepare('SELECT * FROM focus_sessions WHERE user_id = ? ORDER BY ended_at DESC').all(userId);
   const noteRows = database.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY pinned DESC, updated_at DESC').all(userId);
   const imageRows = database.prepare('SELECT * FROM note_images WHERE user_id = ? ORDER BY note_id, position').all(userId);
   const imagesByNote = new Map();
@@ -191,6 +204,7 @@ function getBootstrap(userId) {
     tasks: taskRows.map(row => ({ id: row.id, title: row.title, subject: row.subject, duration: row.duration, priority: row.priority, date: row.task_date, done: Boolean(row.done) })),
     progress: Object.fromEntries(progressRows.map(row => [row.subject, { percent: row.percent, stage: row.stage, note: row.note }])),
     scores: scoreRows.map(row => ({ id: row.id, name: row.name, date: row.exam_date, subject: row.subject, score: row.score, review: row.review })),
+    focus: focusRows.map(row => ({ id: row.id, subject: row.subject, mode: row.timer_mode, startedAt: row.started_at, endedAt: row.ended_at, durationSeconds: row.duration_seconds })),
     notes: noteRows.map(row => ({ id: row.id, title: row.title, subject: row.subject, type: row.note_type, content: row.content, pinned: Boolean(row.pinned), createdAt: row.created_at, updatedAt: row.updated_at, images: imagesByNote.get(row.id) || [] }))
   };
 }
@@ -239,6 +253,21 @@ function replaceScores(userId, scores) {
   });
 }
 
+function replaceFocus(userId, sessions) {
+  transaction(() => {
+    database.prepare('DELETE FROM focus_sessions WHERE user_id = ?').run(userId);
+    const insert = database.prepare('INSERT INTO focus_sessions (id, user_id, subject, timer_mode, started_at, ended_at, duration_seconds) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    sessions.forEach(session => {
+      const mode = String(session.mode || '');
+      const durationSeconds = Math.round(Number(session.durationSeconds));
+      const startedAt = new Date(session.startedAt);
+      const endedAt = new Date(session.endedAt);
+      if (!['countdown', 'stopwatch'].includes(mode) || !Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 86400 || Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime())) throw new Error('INVALID_DATA');
+      insert.run(String(session.id), userId, String(session.subject || '其他').slice(0, 30), mode, startedAt.toISOString(), endedAt.toISOString(), durationSeconds);
+    });
+  });
+}
+
 function replaceNotes(userId, notes) {
   transaction(() => {
     database.prepare('DELETE FROM notes WHERE user_id = ?').run(userId);
@@ -257,6 +286,7 @@ function replaceUserData(userId, type, payload) {
   if (type === 'school' && payload && typeof payload === 'object') return replaceSchool(userId, payload);
   if (type === 'progress' && payload && typeof payload === 'object') return replaceProgress(userId, payload);
   if (type === 'scores' && Array.isArray(payload)) return replaceScores(userId, payload);
+  if (type === 'focus' && Array.isArray(payload)) return replaceFocus(userId, payload);
   if (type === 'notes' && Array.isArray(payload)) return replaceNotes(userId, payload);
   throw new Error('INVALID_DATA_TYPE');
 }

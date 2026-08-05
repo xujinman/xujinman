@@ -247,7 +247,7 @@ app.get('/api/bootstrap', requireAuth, async (req, res, next) => {
 
 app.put('/api/data/:type', requireAuth, async (req, res, next) => {
   try {
-    if (!['tasks', 'school', 'progress', 'scores', 'notes'].includes(req.params.type)) return res.status(404).json({ error: '未知数据类型' });
+    if (!['tasks', 'school', 'progress', 'scores', 'notes', 'focus'].includes(req.params.type)) return res.status(404).json({ error: '未知数据类型' });
     await db.replaceUserData(req.auth.user.id, req.params.type, req.body);
     res.status(204).end();
   } catch (error) {

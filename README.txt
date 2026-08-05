@@ -49,6 +49,7 @@
 - PUT  /api/data/progress
 - PUT  /api/data/scores
 - PUT  /api/data/notes
+- PUT  /api/data/focus
 - POST /api/uploads
 
 当前功能：
@@ -58,6 +59,8 @@
 - 四科复习进度
 - 单科成绩录入、趋势图和目标分析
 - 学习笔记、搜索筛选、置顶及图片上传
+- 专注模式：自选时长倒计时、从 0 开始正计时、暂停与手动结束
+- 专注记录：今日累计、周/月统计、连续天数、趋势图和历史记录
 - 个人中心、昵称和密码修改
 - 手机端自适应布局
 

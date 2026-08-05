@@ -50,6 +50,7 @@
       <nav class="nav-list">
         <button class="nav-item active" data-page="dashboard"><span>⌂</span>学习总览</button>
         <button class="nav-item" data-page="tasks"><span>✓</span>每日任务</button>
+        <button class="nav-item" data-page="focus"><span>◷</span>专注记录</button>
         <button class="nav-item" data-page="progress"><span>◫</span>复习进度</button>
         <button class="nav-item" data-page="scores"><span>↗</span>成绩分析</button>
         <button class="nav-item" data-page="schools"><span>◎</span>目标院校</button>
@@ -61,8 +62,8 @@
           <span>本周目标</span>
           <strong id="weeklyPercent">76%</strong>
         </div>
-        <div class="progress-track small"><span style="width: 76%"></span></div>
-        <p>已学习 26.5 / 35 小时</p>
+        <div class="progress-track small"><span id="weeklyGoalBar" style="width: 0%"></span></div>
+        <p>已专注 <span id="weeklyFocusHours">0</span> / 35 小时</p>
       </div>
 
       <button class="profile-card" id="openProfileModal" type="button">
@@ -83,7 +84,7 @@
           <h1><span id="greetingText">晚上好</span>，继续向目标靠近</h1>
         </div>
         <div class="top-actions">
-          <button class="ghost-button" id="focusButton">开始专注</button>
+          <button class="ghost-button" id="focusButton">◷ 专注模式</button>
           <button class="primary-button" id="openTaskModal">＋ 新建任务</button>
         </div>
       </header>
@@ -112,7 +113,7 @@
         <section class="stats-grid">
           <article class="stat-card">
             <div class="stat-icon">◷</div>
-            <div><span>今日学习</span><strong id="todayHours">4.5 小时</strong><small>比昨日多 38 分钟</small></div>
+            <div><span>今日专注</span><strong id="todayHours">0 分钟</strong><small id="todayFocusHint">今天还没有专注记录</small></div>
           </article>
           <article class="stat-card">
             <div class="stat-icon">✓</div>
@@ -209,6 +210,73 @@
           <div class="task-list full-task-list" id="allTaskList"></div>
           <div class="empty-state" id="taskEmptyState"><span>✓</span><h3>这一天还没有任务</h3><p>新建一个小目标，开始今天的复习。</p></div>
         </article>
+      </section>
+
+      <section class="page" id="focus-page">
+        <div class="page-heading focus-page-heading">
+          <div><span class="card-kicker">DEEP FOCUS</span><h2>专注模式</h2><p>选择倒计时或从 0 开始计时，每次结束都会记录到你的个人账户。</p></div>
+          <div class="focus-live-badge" id="focusLiveBadge"><i></i><span>尚未开始</span></div>
+        </div>
+
+        <div class="focus-main-grid">
+          <article class="panel focus-timer-panel">
+            <div class="focus-mode-tabs" id="focusModeTabs">
+              <button class="active" type="button" data-focus-mode="countdown">倒计时</button>
+              <button type="button" data-focus-mode="stopwatch">从 0 计时</button>
+            </div>
+            <div class="focus-settings-row">
+              <label>专注科目<select id="focusSubject"><option>数学</option><option>英语</option><option>政治</option><option>专业课</option><option>其他</option></select></label>
+              <div class="focus-duration-settings" id="focusDurationSettings">
+                <span>倒计时时长</span>
+                <div class="focus-duration-buttons" id="focusDurationButtons">
+                  <button class="active" type="button" data-minutes="25">25 分钟</button>
+                  <button type="button" data-minutes="45">45 分钟</button>
+                  <button type="button" data-minutes="60">60 分钟</button>
+                  <button type="button" data-minutes="90">90 分钟</button>
+                </div>
+                <label class="focus-custom-duration">自定义<input id="focusCustomMinutes" type="number" min="1" max="240" value="25" /><b>分钟</b></label>
+              </div>
+            </div>
+            <div class="focus-clock-wrap">
+              <div class="focus-clock-ring" id="focusClockRing">
+                <div><span id="focusModeLabel">倒计时</span><strong id="focusClock">25:00</strong><small id="focusClockStatus">准备开始</small></div>
+              </div>
+            </div>
+            <div class="focus-controls">
+              <button class="primary-button" id="focusStartPause" type="button">开始专注</button>
+              <button class="ghost-button" id="focusFinish" type="button" disabled>结束并记录</button>
+              <button class="text-button" id="focusReset" type="button" disabled>清零</button>
+            </div>
+          </article>
+
+          <aside class="focus-today-card">
+            <span class="card-kicker">TODAY</span>
+            <h3>今日专注</h3>
+            <strong id="focusTodayLarge">0<small>分钟</small></strong>
+            <p id="focusTodaySessions">尚无专注记录</p>
+            <div class="focus-today-goal"><div><span>每日建议</span><b id="focusTodayPercent">0%</b></div><div class="progress-track"><span id="focusTodayBar" style="width:0%"></span></div><small>目标 4 小时</small></div>
+          </aside>
+        </div>
+
+        <div class="focus-summary-grid">
+          <article><span>今日专注</span><strong id="focusSummaryToday">0 分钟</strong><small id="focusSummaryTodayCount">0 次记录</small></article>
+          <article><span>本周累计</span><strong id="focusSummaryWeek">0 小时</strong><small>周一至今天</small></article>
+          <article><span>本月累计</span><strong id="focusSummaryMonth">0 小时</strong><small id="focusSummaryMonthCount">0 次记录</small></article>
+          <article><span>连续专注</span><strong id="focusSummaryStreak">0 天</strong><small>每天完成一次即可累计</small></article>
+        </div>
+
+        <div class="focus-analytics-grid">
+          <article class="panel focus-chart-panel">
+            <div class="panel-header"><div><span class="card-kicker">FOCUS TREND</span><h3 id="focusChartTitle">最近 7 天</h3></div><select id="focusPeriod"><option value="week">最近 7 天</option><option value="month">本月</option></select></div>
+            <div class="focus-chart" id="focusChart"></div>
+            <div class="focus-chart-empty" id="focusChartEmpty">完成一次专注后，这里会显示时长趋势</div>
+          </article>
+          <article class="panel focus-history-panel">
+            <div class="panel-header"><div><span class="card-kicker">HISTORY</span><h3>最近记录</h3></div><span class="muted" id="focusHistoryCount">0 条</span></div>
+            <div class="focus-history-list" id="focusHistoryList"></div>
+            <div class="focus-history-empty" id="focusHistoryEmpty">还没有专注记录</div>
+          </article>
+        </div>
       </section>
 
       <section class="page" id="progress-page">
