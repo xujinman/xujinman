@@ -3,7 +3,9 @@
 技术结构：
 - 前端：HTML / CSS / JavaScript
 - 后端：Node.js / Express
-- 数据库：Node.js 内置 SQLite
+- 本地数据库：Node.js 内置 SQLite
+- 免费云端数据库：Supabase PostgreSQL
+- 免费云端图片：Supabase 私有 Storage
 - 登录：服务端 Session + HttpOnly Cookie
 - 密码：服务端 scrypt 加盐哈希，不保存明文
 - 图片：本机 uploads 目录（可在生产环境替换成对象存储）
@@ -62,8 +64,9 @@
 生产部署说明：
 - 项目根目录已提供 render.yaml 和 DEPLOY_RENDER.md，可通过 Render Blueprint 部署。
 - 设置 NODE_ENV=production 后 Cookie 会启用 Secure，因此必须通过 HTTPS 访问。
-- 可使用 HOST、PORT、DATABASE_PATH、UPLOAD_ROOT 环境变量修改监听地址、端口、数据库和图片目录。
+- Render Blueprint 使用免费实例，不再需要付费持久化磁盘。
+- 设置 DATABASE_URL 后自动启用 PostgreSQL；设置 SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY 后自动启用 Supabase 私有图片存储。
+- 本地仍可使用 HOST、PORT、DATABASE_PATH、UPLOAD_ROOT 修改监听地址、端口、SQLite 和图片目录。
 - 设置 REGISTRATION_INVITE_CODE 后，新用户必须填写正确邀请码才能注册。
 - 笔记图片接口需要登录，并且只能读取当前账户自己的图片。
-- 当前 SQLite 适合本机或单机部署；多人公网使用时建议将 server/database.js 替换为 PostgreSQL/Prisma 实现。
-- 图片较多时应将 /api/uploads 改为 S3 兼容对象存储的预签名上传。
+- 详细配置方法请阅读 DEPLOY_RENDER.md。

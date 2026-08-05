@@ -3,7 +3,7 @@ services:
     name: yantu-kaoyan-dashboard
     runtime: node
     region: singapore
-    plan: starter
+    plan: free
     buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /api/health
@@ -13,13 +13,13 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
-      - key: DATABASE_PATH
-        value: /var/data/yantu.db
-      - key: UPLOAD_ROOT
-        value: /var/data/uploads
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: yantu-uploads
       - key: REGISTRATION_INVITE_CODE
         sync: false
-    disk:
-      name: yantu-data
-      mountPath: /var/data
-      sizeGB: 1

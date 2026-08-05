@@ -97,6 +97,8 @@ database.exec(`
   );
 `);
 
+async function initialize() {}
+
 function transaction(action) {
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -264,7 +266,9 @@ function closeDatabase() {
 }
 
 module.exports = {
+  kind: 'sqlite',
   projectRoot,
+  initialize,
   publicUser,
   findUserByUsername,
   findUserById,
